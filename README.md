@@ -184,6 +184,81 @@ Get a list of all products from the database.
 }
 ```
 
+### Get Product by ID
+
+```
+GET /products/{product_id}
+```
+
+Get a single product by its ID.
+
+**Response:**
+```json
+{
+  "id": 1,
+  "name": "Coca-Cola 1L",
+  "category": "Напитки",
+  "description": "Газированный напиток Coca-Cola 1 литр",
+  "price": 450.0,
+  "image_url": null,
+  "barcode": "4870200013834",
+  "in_stock": 1,
+  "created_at": "2024-01-01 12:00:00"
+}
+```
+
+### Create Product
+
+```
+POST /products
+```
+
+Create a new product.
+
+**Request Body:**
+```json
+{
+  "name": "Fanta 1L",
+  "category": "Напитки",
+  "description": "Газированный напиток Fanta 1 литр",
+  "price": 450.0,
+  "image_url": "https://example.com/fanta.jpg",
+  "barcode": "4870200013835",
+  "in_stock": 1
+}
+```
+
+**Response:** Returns the created product (201 Created)
+
+### Update Product
+
+```
+PUT /products/{product_id}
+```
+
+Update an existing product. Only provided fields will be updated.
+
+**Request Body:**
+```json
+{
+  "name": "Fanta 1.5L",
+  "price": 550.0,
+  "in_stock": 0
+}
+```
+
+**Response:** Returns the updated product
+
+### Delete Product
+
+```
+DELETE /products/{product_id}
+```
+
+Delete a product by ID.
+
+**Response:** 204 No Content
+
 ### Health Check
 
 ```

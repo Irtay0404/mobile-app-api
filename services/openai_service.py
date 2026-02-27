@@ -90,7 +90,7 @@ async def recognize_from_image(image_base64: str) -> dict:
 
     # ── Шаг 1: GPT-4o анализирует фото ────────────────────────────────────────
     response = await client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-5-mini-2025-08-07",
         messages=messages,
         tools=TOOLS,
         tool_choice="required",  # обязываем вызвать tool

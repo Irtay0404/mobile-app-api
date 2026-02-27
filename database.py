@@ -92,3 +92,104 @@ async def get_all_products() -> list[dict]:
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+async def get_product_by_id(product_id: int) -> dict | None:
+    """Возвращает товар по ID или None, если не найден."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        
+        cursor = await db.execute(
+            """
+            SELECT id, name, category, description, price, image_url, barcode, in_stock, created_at
+            FROM products
+            WHERE id = ?
+            """,
+            (product_id,)
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+
+async def create_product(
+    name: str,
+    category: str | None = None,
+    description: str | None = None,
+    price: float = 0.0,
+    image_url: str | None = None,
+    barcode: str | None = None,
+    in_stock: int = 1
+) -> int:
+    """Создаёт новый товар и возвращает его ID."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            """
+            INSERT INTO products (name, category, description, price, image_url, barcode, in_stock)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (name, category, description, price, image_url, barcode, in_stock)
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def update_product(
+    product_id: int,
+    name: str | None = None,
+    category: str | None = None,
+    description: str | None = None,
+    price: float | None = None,
+    image_url: str | None = None,
+    barcode: str | None = None,
+    in_stock: int | None = None
+) -> bool:
+    """Обновляет товар. Возвращает True, если товар найден и обновлён."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Сначала проверяем существование товара
+        cursor = await db.execute("SELECT id FROM products WHERE id = ?", (product_id,))
+        if not await cursor.fetchone():
+            return False
+        
+        # Формируем SQL динамически, обновляя только переданные поля
+        updates = []
+        params = []
+        
+        if name is not None:
+            updates.append("name = ?")
+            params.append(name)
+        if category is not None:
+            updates.append("category = ?")
+            params.append(category)
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+        if price is not None:
+            updates.append("price = ?")
+            params.append(price)
+        if image_url is not None:
+            updates.append("image_url = ?")
+            params.append(image_url)
+        if barcode is not None:
+            updates.append("barcode = ?")
+            params.append(barcode)
+        if in_stock is not None:
+            updates.append("in_stock = ?")
+            params.append(in_stock)
+        
+        if not updates:
+            return True  # Нечего обновлять
+        
+        params.append(product_id)
+        sql = f"UPDATE products SET {', '.join(updates)} WHERE id = ?"
+        
+        await db.execute(sql, params)
+        await db.commit()
+        return True
+
+
+async def delete_product(product_id: int) -> bool:
+    """Удаляет товар. Возвращает True, если товар найден и удалён."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        await db.commit()
+        return cursor.rowcount > 0
