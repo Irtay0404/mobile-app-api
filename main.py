@@ -5,21 +5,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from database import close_pool
+from database import init_db
 from routers import recognize, checkout
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await init_db()   
     yield
-    await close_pool()
 
 
 app = FastAPI(title="Cashierless API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # для демо; в проде ограничить
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
