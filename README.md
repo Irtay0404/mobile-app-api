@@ -19,7 +19,8 @@ mobile-app-api/
 ├── database.py             # SQLite connection, schema init & product search
 ├── routers/
 │   ├── recognize.py        # Product recognition endpoint
-│   └── checkout.py         # Checkout, payment & status endpoints
+│   ├── checkout.py         # Checkout, payment & status endpoints
+│   └── products.py          # Products list endpoint
 ├── services/
 │   ├── openai_service.py   # OpenAI GPT-4o Vision integration
 │   └── forte_service.py    # Forte Bank payment integration
@@ -154,6 +155,35 @@ Sample products included:
 
 ## API Endpoints
 
+### Get All Products
+
+```
+GET /products
+```
+
+Get a list of all products from the database.
+
+**Response:**
+```json
+{
+  "count": 10,
+  "products": [
+    {
+      "id": 1,
+      "name": "Coca-Cola 1L",
+      "category": "Напитки",
+      "description": "Газированный напиток Coca-Cola 1 литр",
+      "price": 450.0,
+      "image_url": null,
+      "barcode": "4870200013834",
+      "in_stock": 1,
+      "created_at": "2024-01-01 12:00:00"
+    },
+    ...
+  ]
+}
+```
+
 ### Health Check
 
 ```
@@ -183,6 +213,35 @@ Recognize products from a base64-encoded image.
   "image_base64": "/9j/4AAQSkZJRg..."
 }
 ```
+
+**Response:**
+```json
+{
+  "recognized_items": [
+    {
+      "product_id": 1,
+      "name": "Coca-Cola 1L",
+      "price": 450.0,
+      "quantity": 1,
+      "confidence": 0.95
+    }
+  ],
+  "unrecognized": [],
+  "total": 450.0
+}
+```
+
+### Product Recognition (File Upload)
+
+```
+POST /recognize/file
+```
+
+Recognize products from an uploaded image file. This endpoint is more convenient for Swagger UI and direct file uploads.
+
+**Request:** Multipart form data with file upload
+
+- **file**: Image file (JPEG, PNG)
 
 **Response:**
 ```json

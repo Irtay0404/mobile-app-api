@@ -76,3 +76,19 @@ async def search_products(queries: list[str]) -> list[dict]:
                     results.append(dict(row))
 
     return results
+
+
+async def get_all_products() -> list[dict]:
+    """Возвращает все товары из базы данных."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row  # доступ по имени колонки
+
+        cursor = await db.execute(
+            """
+            SELECT id, name, category, description, price, image_url, barcode, in_stock, created_at
+            FROM products
+            ORDER BY name
+            """
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]

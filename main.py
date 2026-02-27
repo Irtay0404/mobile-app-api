@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from database import init_db
-from routers import recognize, checkout
+from routers import recognize, checkout, products
 
 
 @asynccontextmanager
@@ -26,6 +26,7 @@ app.add_middleware(
 
 app.include_router(recognize.router)
 app.include_router(checkout.router)
+app.include_router(products.router)
 
 
 @app.get("/health")
