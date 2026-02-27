@@ -1,48 +1,92 @@
 import os
 import httpx
-from pydantic import BaseModel
+import base64
 
-FORTE_BASE_URL = os.getenv("FORTE_BASE_URL", "https://sandbox.forte.kz/api/v1")
-FORTE_API_KEY  = os.getenv("FORTE_API_KEY", "")
-FORTE_MERCHANT = os.getenv("FORTE_MERCHANT_ID", "")
-
-
-class PaymentRequest(BaseModel):
-    order_id: str
-    amount: float
-    currency: str = "KZT"
-    card_number: str
-    description: str = "Cashierless payment"
+FORTE_BASE_URL = os.getenv("FORTE_BASE_URL", "http://localhost:8082")
+FORTE_LOGIN    = os.getenv("FORTE_LOGIN", "TerminalSys/Login1")
+FORTE_PASSWORD = os.getenv("FORTE_PASSWORD", "Password1234")
 
 
-async def process_payment(req: PaymentRequest) -> dict:
+def _basic_auth_header() -> str:
+    credentials = f"{FORTE_LOGIN}:{FORTE_PASSWORD}"
+    encoded = base64.b64encode(credentials.encode()).decode()
+    return f"Basic {encoded}"
+
+
+async def create_order(amount: float, description: str, redirect_url: str) -> dict:
     """
-    Отправляет платёж в симулятор Forte Bank.
-    Замените тело запроса под реальный формат вашего симулятора.
+    Создаёт ордер в Forte и возвращает:
+      - order_id   (int64)
+      - password   (str)
+      - hpp_url    (str) — ссылка для открытия в браузере
     """
-    headers = {
-        "Authorization": f"Bearer {FORTE_API_KEY}",
-        "Content-Type": "application/json",
-        "X-Merchant-Id": FORTE_MERCHANT,
-    }
+    # Forte принимает сумму в тиынах (минимальных единицах).
+    # 1 тенге = 100 тиын → умножаем на 100
+    amount_tiyn = int(amount * 100)
 
     payload = {
-        "order_id":    req.order_id,
-        "amount":      req.amount,
-        "currency":    req.currency,
-        "card_number": req.card_number,
-        "description": req.description,
-        "merchant_id": FORTE_MERCHANT,
+        "order": {
+            "typeRid":       "Order_RID",
+            "language":      "ru",
+            "amount":        str(amount_tiyn),
+            "currency":      "KZT",
+            "hppRedirectUrl": redirect_url,
+            "description":   description,
+            "title":         "Cashierless Store",
+        }
     }
 
-    async with httpx.AsyncClient(timeout=30) as http:
-        resp = await http.post(
-            f"{FORTE_BASE_URL}/payments",
+    headers = {
+        "Authorization": _basic_auth_header(),
+        "Content-Type":  "application/json",
+    }
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(
+            f"{FORTE_BASE_URL}/order",
             json=payload,
             headers=headers,
         )
 
-    if resp.status_code in (200, 201):
-        return {"status": "success", "data": resp.json()}
-    else:
-        return {"status": "error", "code": resp.status_code, "detail": resp.text}
+    if resp.status_code not in (200, 201):
+        raise RuntimeError(f"Forte create_order failed: {resp.status_code} {resp.text}")
+
+    data = resp.json()
+    order = data["order"]
+
+    order_id = order["id"]
+    password = order["password"]
+    hpp_base = order.get("hppUrl", f"{FORTE_BASE_URL}/flex")
+
+    # Формируем ссылку на платёжную форму
+    hpp_url = f"{hpp_base}?id={order_id}&password={password}"
+
+    return {
+        "forte_order_id": order_id,
+        "forte_password": password,
+        "hpp_url":        hpp_url,
+        "status":         order.get("status", "Preparing"),
+    }
+
+
+async def get_order_status(forte_order_id: int, password: str) -> str:
+    """Возвращает статус ордера: Preparing | FullyPaid | Declined | ..."""
+    headers = {"Authorization": _basic_auth_header()}
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            f"{FORTE_BASE_URL}/order/{forte_order_id}",
+            params={"password": password, "tranDetailLevel": "1"},
+            headers=headers,
+        )
+
+    if resp.status_code != 200:
+        raise RuntimeError(f"Forte get_order failed: {resp.status_code}")
+
+    data = resp.json()
+
+    # Если ордер не найден — Forte возвращает errorCode
+    if "errorCode" in data:
+        raise RuntimeError(data.get("errorDescription", "Order not found"))
+
+    return data["order"]["status"]
